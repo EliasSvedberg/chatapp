@@ -8,7 +8,11 @@ class Server:
         self.PORT = PORT
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((self.HOST, self.PORT))
+        self.socket.listen()
         self.clients = {}
+        self.beginColor = '\033[96m'
+        self.endColor = '\033[0m'
+        print("Server is listening...")
         self.receive()
 
     def receive(self):
@@ -17,29 +21,32 @@ class Server:
             print(f"Connected with {str(adress)}!")
 
             # if new client then ask for nickname
-            client.send("NEWCLIENT".encode('utf-8'))
-            nickName = client.recv(1024)
+            client.send("NEWCLIENT".encode("utf-8"))
+            nickName = client.recv(1024).decode("utf-8")
             self.clients[client] = nickName
 
             # Send notification to all connected clients
             self.broadcast(
-                f"{nickName} connected to the server"
-                .encode('utf-8'))
-            client.send("Connected to the server".encode('utf-8'))
+                f"Server: {nickName} connected to the server"
+                .encode("utf-8"), client)
 
             # start thread
-            thread = threading.Thread(target=self.handle(), args=(client,))
+            thread = threading.Thread(target=self.handle, args=(client,))
             thread.start()
 
-    def broadcast(self, message):
+    def broadcast(self, message, postingClient):
         for client in self.clients.keys():
-            client.send(message)
+            if client != postingClient:
+                client.send(message)
 
     def handle(self, client):
         while True:
             try:
-                message = client.recv(1024)
-                self.broadcast(message)
+                message = client.recv(1024).decode("utf-8")
+                nickName = self.clients[client]
+                msg = f"{self.beginColor}{nickName}: {message}{self.endColor}"
+                self.broadcast(msg.encode("utf-8"),
+                               client)
             except Exception as e:
                 print(e)
                 client.close()
@@ -51,4 +58,4 @@ class Server:
 HOST = '127.0.0.1'
 PORT = '9090'
 
-server = Server()
+server = Server(HOST, int(PORT))
